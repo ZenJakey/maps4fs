@@ -58,6 +58,10 @@ class Background(Component):
         os.makedirs(self.water_directory, exist_ok=True)
 
         self.output_path = os.path.join(self.background_directory, f"{FULL_NAME}.png")
+        if self.map.custom_background_path:
+            self.check_custom_background(self.map.custom_background_path)
+            shutil.copyfile(self.map.custom_background_path, self.output_path)
+
         self.not_substracted_path = os.path.join(self.background_directory, "not_substracted.png")
         self.not_resized_path = os.path.join(self.background_directory, "not_resized.png")
 
@@ -75,6 +79,28 @@ class Background(Component):
         self.dem.set_output_resolution((self.rotated_size, self.rotated_size))
         self.dem.set_dem_path(self.output_path)
 
+    def check_custom_background(self, image_path: str) -> None:
+        """Checks if the custom background image meets the requirements.
+
+        Arguments:
+            image_path (str): The path to the custom background image.
+
+        Raises:
+            ValueError: If the custom background image does not meet the requirements.
+        """
+        image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)  # pylint: disable=no-member
+        if image.shape[0] != image.shape[1]:
+            raise ValueError("The custom background image must be a square.")
+
+        if image.shape[0] != self.map_size + DEFAULT_DISTANCE * 2:
+            raise ValueError("The custom background image must have the size of the map + 4096.")
+
+        if len(image.shape) != 2:
+            raise ValueError("The custom background image must be a grayscale image.")
+
+        if image.dtype != np.uint16:
+            raise ValueError("The custom background image must be a 16-bit grayscale image.")
+
     def is_preview(self, name: str) -> bool:
         """Checks if the DEM is a preview.
 
@@ -91,7 +117,9 @@ class Background(Component):
         as a result the DEM files will be saved, then based on them the obj files will be
         generated."""
         self.create_background_textures()
-        self.dem.process()
+
+        if not self.map.custom_background_path:
+            self.dem.process()
 
         shutil.copyfile(self.dem.dem_path, self.not_substracted_path)
         self.cutout(self.dem.dem_path, save_path=self.not_resized_path)
@@ -148,6 +176,9 @@ class Background(Component):
             "east": east,
             "west": west,
         }
+
+        dem_info_sequence = self.dem.info_sequence()
+        data["DEM"] = dem_info_sequence
         return data  # type: ignore
 
     def qgis_sequence(self) -> None:
@@ -176,7 +207,13 @@ class Background(Component):
         self.logger.debug("Generating obj file in path: %s", save_path)
 
         dem_data = cv2.imread(self.dem.dem_path, cv2.IMREAD_UNCHANGED)  # pylint: disable=no-member
-        self.plane_from_np(dem_data, save_path)  # type: ignore
+        self.plane_from_np(
+            dem_data,
+            save_path,
+            create_preview=True,
+            remove_center=self.map.background_settings.remove_center,
+            include_zeros=False,
+        )  # type: ignore
 
     # pylint: disable=too-many-locals
     def cutout(self, dem_path: str, save_path: str | None = None) -> str:
@@ -219,16 +256,37 @@ class Background(Component):
         )
 
         cv2.imwrite(main_dem_path, resized_dem_data)  # pylint: disable=no-member
-        self.logger.info("DEM cutout saved: %s", main_dem_path)
+        self.logger.debug("DEM cutout saved: %s", main_dem_path)
 
         return main_dem_path
 
-    # pylint: disable=too-many-locals
+    def remove_center(self, dem_data: np.ndarray, resize_factor: float) -> np.ndarray:
+        """Removes the center part of the DEM data.
+
+        Arguments:
+            dem_data (np.ndarray) -- The DEM data as a numpy array.
+            resize_factor (float) -- The resize factor of the DEM data.
+
+        Returns:
+            np.ndarray -- The DEM data with the center part removed.
+        """
+        center = (dem_data.shape[0] // 2, dem_data.shape[1] // 2)
+        half_size = int(self.map_size // 2 * resize_factor)
+        x1 = center[0] - half_size
+        x2 = center[0] + half_size
+        y1 = center[1] - half_size
+        y2 = center[1] + half_size
+        dem_data[x1:x2, y1:y2] = 0
+        return dem_data
+
+    # pylint: disable=R0913, R0917, R0915
     def plane_from_np(
         self,
         dem_data: np.ndarray,
         save_path: str,
         include_zeros: bool = True,
+        create_preview: bool = False,
+        remove_center: bool = False,
     ) -> None:
         """Generates a 3D obj file based on DEM data.
 
@@ -236,11 +294,18 @@ class Background(Component):
             dem_data (np.ndarray) -- The DEM data as a numpy array.
             save_path (str) -- The path where the obj file will be saved.
             include_zeros (bool, optional) -- If True, the mesh will include the zero height values.
+            create_preview (bool, optional) -- If True, a simplified mesh will be saved as an STL.
+            remove_center (bool, optional) -- If True, the center of the mesh will be removed.
+                This setting is used for a Background Terrain, where the center part where the
+                playable area is will be cut out.
         """
         resize_factor = 1 / self.map.background_settings.resize_factor
         dem_data = cv2.resize(  # pylint: disable=no-member
             dem_data, (0, 0), fx=resize_factor, fy=resize_factor
         )
+        if remove_center:
+            dem_data = self.remove_center(dem_data, resize_factor)
+            self.logger.debug("Center removed from DEM data.")
         self.logger.debug(
             "DEM data resized to shape: %s with factor: %s", dem_data.shape, resize_factor
         )
@@ -275,7 +340,10 @@ class Background(Component):
                 bottom_left = top_left + cols
                 bottom_right = bottom_left + 1
 
-                if ground in [z[i, j], z[i, j + 1], z[i + 1, j], z[i + 1, j + 1]]:
+                if (
+                    ground in [z[i, j], z[i, j + 1], z[i + 1, j], z[i + 1, j + 1]]
+                    and not include_zeros
+                ):
                     skipped += 1
                     continue
 
@@ -294,16 +362,32 @@ class Background(Component):
         mesh.apply_transform(rotation_matrix_z)
 
         # if not include_zeros:
-        z_scaling_factor = 1 / self.map.dem_settings.multiplier
+        z_scaling_factor = self.get_z_scaling_factor()
         self.logger.debug("Z scaling factor: %s", z_scaling_factor)
         mesh.apply_scale([1 / resize_factor, 1 / resize_factor, z_scaling_factor])
+
+        old_faces = len(mesh.faces)
+        self.logger.debug("Mesh generated with %s faces.", old_faces)
+
+        if self.map.background_settings.apply_decimation:
+            percent = self.map.background_settings.decimation_percent / 100
+            mesh = mesh.simplify_quadric_decimation(
+                percent=percent, aggression=self.map.background_settings.decimation_agression
+            )
+
+            new_faces = len(mesh.faces)
+            decimation_percent = (old_faces - new_faces) / old_faces * 100
+
+            self.logger.debug(
+                "Mesh simplified to %s faces. Decimation percent: %s", new_faces, decimation_percent
+            )
 
         mesh.export(save_path)
         self.logger.debug("Obj file saved: %s", save_path)
 
-        if include_zeros:
+        if create_preview:
             # Simplify the preview mesh to reduce the size of the file.
-            mesh = mesh.simplify_quadric_decimation(face_count=len(mesh.faces) // 2**7)
+            # mesh = mesh.simplify_quadric_decimation(face_count=len(mesh.faces) // 2**7)
 
             # Apply scale to make the preview mesh smaller in the UI.
             mesh.apply_scale([0.5, 0.5, 0.5])

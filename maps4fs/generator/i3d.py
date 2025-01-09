@@ -14,14 +14,10 @@ import numpy as np
 from maps4fs.generator.component import Component
 from maps4fs.generator.texture import Texture
 
-DEFAULT_HEIGHT_SCALE = 2000
 DISPLACEMENT_LAYER_SIZE_FOR_BIG_MAPS = 32768
-DEFAULT_MAX_LOD_DISTANCE = 10000
-DEFAULT_MAX_LOD_OCCLUDER_DISTANCE = 10000
 NODE_ID_STARTING_VALUE = 2000
 SPLINES_NODE_ID_STARTING_VALUE = 5000
 TREE_NODE_ID_STARTING_VALUE = 10000
-DEFAULT_FOREST_DENSITY = 10
 
 
 # pylint: disable=R0903
@@ -81,6 +77,20 @@ class I3d(Component):
 
         root = tree.getroot()
         for map_elem in root.iter("Scene"):
+            for terrain_elem in map_elem.iter("TerrainTransformGroup"):
+                if self.map.shared_settings.change_height_scale:
+                    suggested_height_scale = self.map.shared_settings.height_scale_value
+                    if suggested_height_scale is not None and suggested_height_scale > 255:
+                        new_height_scale = int(
+                            self.map.shared_settings.height_scale_value  # type: ignore
+                        )
+                        terrain_elem.set("heightScale", str(new_height_scale))
+                        self.logger.info(
+                            "heightScale attribute set to %s in TerrainTransformGroup element.",
+                            new_height_scale,
+                        )
+
+                self.logger.debug("TerrainTransformGroup element updated in I3D file.")
             sun_elem = map_elem.find(".//Light[@name='sun']")
 
             if sun_elem is not None:
@@ -97,10 +107,6 @@ class I3d(Component):
                 )
 
         if self.map_size > 4096:
-            terrain_elem = root.find(".//TerrainTransformGroup")
-            if terrain_elem is None:
-                self.logger.warning("TerrainTransformGroup element not found in I3D file.")
-                return
             displacement_layer = terrain_elem.find(".//DisplacementLayer")  # pylint: disable=W0631
 
             if displacement_layer is not None:
@@ -146,7 +152,7 @@ class I3d(Component):
             self.logger.warning("Roads polylines data not found in textures info layer.")
             return
 
-        self.logger.info("Found %s roads polylines in textures info layer.", len(roads_polylines))
+        self.logger.debug("Found %s roads polylines in textures info layer.", len(roads_polylines))
         self.logger.debug("Starging to add roads polylines to the I3D file.")
 
         root = tree.getroot()
@@ -188,7 +194,7 @@ class I3d(Component):
                         linestring_points=road, angle=self.rotation
                     )
                 except ValueError as e:
-                    self.logger.warning(
+                    self.logger.debug(
                         "Road %s could not be fitted into the map bounds with error: %s",
                         road_id,
                         e,
@@ -239,7 +245,7 @@ class I3d(Component):
                     y = max(0, min(y, dem_y_size - 1))
 
                     z = not_resized_dem[y, x]
-                    z /= 32  # Yes, it's a magic number here.
+                    z *= self.get_z_scaling_factor()  # type: ignore
 
                     cv_node = ET.Element("cv")
                     cv_node.set("c", f"{cx}, {z}, {cy}")
@@ -291,7 +297,7 @@ class I3d(Component):
             self.logger.warning("Fields data not found in textures info layer.")
             return
 
-        self.logger.info("Found %s fields in textures info layer.", len(fields))
+        self.logger.debug("Found %s fields in textures info layer.", len(fields))
         self.logger.debug("Starging to add fields to the I3D file.")
 
         root = tree.getroot()
@@ -313,7 +319,7 @@ class I3d(Component):
                             polygon_points=field, angle=self.rotation
                         )
                     except ValueError as e:
-                        self.logger.warning(
+                        self.logger.debug(
                             "Field %s could not be fitted into the map bounds with error: %s",
                             field_id,
                             e,
@@ -327,7 +333,7 @@ class I3d(Component):
                     try:
                         cx, cy = self.get_polygon_center(field_ccs)
                     except Exception as e:  # pylint: disable=W0718
-                        self.logger.warning(
+                        self.logger.debug(
                             "Field %s could not be fitted into the map bounds.", field_id
                         )
                         self.logger.debug("Error: %s", e)

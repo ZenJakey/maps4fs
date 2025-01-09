@@ -4,11 +4,28 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+
+
+class SharedSettings(BaseModel):
+    """Represents the shared settings for all components."""
+
+    mesh_z_scaling_factor: float | None = None
+    height_scale_multiplier: float | None = None
+    height_scale_value: float | None = None
+    change_height_scale: bool = False
+
+    model_config = ConfigDict(
+        frozen=False,
+    )
 
 
 class SettingsModel(BaseModel):
     """Base class for settings models. It provides methods to convert settings to and from JSON."""
+
+    model_config = ConfigDict(
+        frozen=False,
+    )
 
     @classmethod
     def all_settings_to_json(cls) -> dict[str, dict[str, Any]]:
@@ -25,18 +42,28 @@ class SettingsModel(BaseModel):
         return all_settings
 
     @classmethod
-    def all_settings_from_json(cls, data: dict) -> dict[str, SettingsModel]:
+    def all_settings_from_json(
+        cls, data: dict, flattening: bool = True
+    ) -> dict[str, SettingsModel]:
         """Create settings instances from JSON data.
 
         Arguments:
             data (dict): JSON data.
+            flattening (bool): if set to True will flattet iterables to use the first element
+                of it.
 
         Returns:
             dict[str, Type[SettingsModel]]: Dictionary with settings instances.
         """
         settings = {}
         for subclass in cls.__subclasses__():
-            settings[subclass.__name__] = subclass(**data[subclass.__name__])
+            subclass_data = data[subclass.__name__]
+            if flattening:
+                for key, value in subclass_data.items():
+                    if isinstance(value, (list, tuple)):
+                        subclass_data[key] = value[0]
+
+            settings[subclass.__name__] = subclass(**subclass_data)
 
         return settings
 
@@ -85,6 +112,10 @@ class BackgroundSettings(SettingsModel):
     generate_background: bool = False
     generate_water: bool = False
     resize_factor: int = 8
+    remove_center: bool = False
+    apply_decimation: bool = False
+    decimation_percent: int = 25
+    decimation_agression: int = 3
 
 
 class GRLESettings(SettingsModel):
@@ -100,6 +131,12 @@ class GRLESettings(SettingsModel):
     farmland_margin: int = 0
     random_plants: bool = True
     add_farmyards: bool = False
+    base_grass: tuple | str = ("smallDenseMix", "meadow")
+    plants_island_minimum_size: int = 10
+    plants_island_maximum_size: int = 200
+    plants_island_vertex_count: int = 30
+    plants_island_rounding_radius: int = 15
+    plants_island_percent: int = 100
 
 
 class I3DSettings(SettingsModel):
@@ -146,5 +183,5 @@ class SatelliteSettings(SettingsModel):
     """
 
     download_images: bool = False
-    satellite_margin: int = 100
+    satellite_margin: int = 0
     zoom_level: int = 14

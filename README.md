@@ -43,16 +43,15 @@
 </div>
 
 🗺️ Supports 2x2, 4x4, 8x8, 16x16 and any custom size maps<br>
-🔄 Support map rotation 🆕<br>
+🔄 Support map rotation<br>
 🌐 Supports custom [DTM Providers](#DTM-Providers) 🆕<br>
-🌾 Automatically generates fields 🆕<br>
-🌽 Automatically generates farmlands 🆕<br>
-🌿 Automatically generates decorative foliage 🆕<br>
-🌲 Automatically generates forests 🆕<br>
-🌊 Automatically generates water planes 🆕<br>
+🌾 Automatically generates fields<br>
+🌽 Automatically generates farmlands<br>
+🌿 Automatically generates decorative foliage<br>
+🌲 Automatically generates forests<br>
+🌊 Automatically generates water planes<br>
 📈 Automatically generates splines 🆕<br>
 🛰️ Automatically downloads high resolution satellite images 🆕<br>
-🏔️ Allows to use multiple DTM providers for elevation models 🆕<br>
 🌍 Based on real-world data from OpenStreetMap<br>
 🗺️ Supports [custom OSM maps](/docs/custom_osm.md)<br>
 🏞️ Generates height map using SRTM dataset<br>
@@ -73,10 +72,14 @@
 🌿 Automatically generates decorative foliage.<br><br>
 <img src="https://github.com/user-attachments/assets/27a5e541-a9f5-4504-b8d2-64aae9fb3e52"><br>
 🌲 Automatically generates forests.<br><br>
+<img src="https://github.com/user-attachments/assets/891911d7-081d-431e-a677-b4ae96870286"><br>
+🌲 Allows to select trees for generation.<br><br>
 <img src="https://github.com/user-attachments/assets/cce7d4e0-cba2-4dd2-b22d-03137fb2e860"><br>
 🌊 Automatically generates water planes.<br><br>
 <img src="https://github.com/user-attachments/assets/0b05b511-a595-48e7-a353-8298081314a4"><br>
 📈 Automatically generates splines.<br><br>
+<img src="https://github.com/user-attachments/assets/0957db9e-7b95-4951-969c-9d1edd9f073b"><br>
+🖌️ Allows customization of the texture schema.<br><br>
 <img src="https://github.com/user-attachments/assets/80e5923c-22c7-4dc0-8906-680902511f3a"><br>
 🗒️ True-to-life blueprints for fast and precise modding.<br><br>
 <img width="480" src="https://github.com/user-attachments/assets/1a8802d2-6a3b-4bfa-af2b-7c09478e199b"><br>
@@ -105,6 +108,7 @@ docker run -d -p 8501:8501 --name maps4fs iwatkot/maps4fs
 ```
 And open [http://localhost:8501](http://localhost:8501) in your browser.<br>
 If you don't know how to use Docker, navigate to the [Docker version](#option-2-docker-version), it's really simple.<br>
+Check out the [Docker FAQ](docs/FAQ_docker.md) if you have any questions.<br>
 
 ### 🤯 For developers
 **Option 3:** Python package. Install the package using the following command:
@@ -159,6 +163,7 @@ Using it is easy and doesn't require any guides. Enjoy!
 🗺️ Supported map sizes: 2x2, 4x4, 8x8, 16x16 km and any custom size.  
 ⚙️ Advanced settings: enabled.   
 🖼️ Texture dissolving: enabled.  
+Check out the [Docker FAQ](docs/FAQ_docker.md) if you have any questions.<br>
 You can launch the project with minimalistic UI in your browser using Docker. Follow these steps:
 
 1. Install [Docker](https://docs.docker.com/get-docker/) for your OS.
@@ -227,6 +232,12 @@ The tool now has a Modder Toolbox, which is a set of tools to help you with vari
 
 ### Tool Categories
 Tools are divided into categories, which are listed below.
+
+#### For custom schemas
+- **Tree Schema Editor** - allows you to view all the supported trees models and select the ones you need on your map. After it, you should click the Show updated schema button and copy the JSON schema to the clipboard. Then you can use it in the Expert settings to generate the map with the selected trees.
+
+- **Texture Schema Editor** - allows you to view all the supported textures and edit their parameters, such as priority, OSM tags and so on. After editing, you should click the Show updated schema button and copy the JSON schema to the clipboard. Then you can use it in the Expert settings to generate the map with the updated textures.
+
 #### For Textures and DEM
 - **GeoTIFF windowing** - allows you to upload your GeoTIFF file and select the region of interest to extract it from the image. It's useful when you have high-resolution DEM data and want to create a height map using it.
 
@@ -395,6 +406,7 @@ Let's have a closer look at the fields:
 - `background` - set it to True for the textures, which should have impact on the Background Terrain, by default it's used to subtract the water depth from the DEM and background terrain.
 - `info_layer` - if the layer is saving some data in JSON format, this section will describe it's name in the JSON file. Used to find the needed JSON data, for example for fields it will be `fields` and as a value - list of polygon coordinates.
 - `invisible` - set it to True for the textures, which should not be drawn in the files, but only to save the data in the JSON file (related to the previous field).
+- `procedural` - is a list of corresponding files, that will be used for a procedural generation. For example: `"procedural": ["PG_meadow", "PG_acres"]` - means that the texture will be used for two procedural generation files: `masks/PG_meadow.png` and `masks/PG_acres.png`. Note, that the one procuderal name can be applied to multiple textures, in this case they will be merged into one mask.
 
 ## Background terrain
 The tool now supports the generation of the background terrain. If you don't know what it is, here's a brief explanation. The background terrain is the world around the map. It's important to create it because if you don't, the map will look like it's floating in the void. The background terrain is a simple plane that can (and should) be textured to look fine.<br>
@@ -441,17 +453,12 @@ List of the important DDS files:
 - `mapsUS/overview.dds` - 4096x4096 pixels, the overview image of the map (in-game map)
 
 ## Advanced settings
-The tool supports the custom size of the map. To use this feature select `Custom` in the `Map size` dropdown and enter the desired size. The tool will generate a map with the size you entered.<br>
 
-⛔️ Do not use this feature, if you don't know what you're doing. In most cases, the Giants Editor will just crash on opening the file, because you need to enter specific values for the map size.<br><br>
-
-![Advanced settings](https://github.com/user-attachments/assets/9e8e178a-58d9-4aa6-aefd-4ed53408701d)
-
-You can also apply some advanced settings to the map generation process. Note that they're ADVANCED, so you don't need to use them if you're not sure what they do.<br>
+You can also apply some advanced settings to the map generation process.<br>
 
 ### DEM Advanced settings
 
-- Multiplier: the height of the map is multiplied by this value. So the DEM map is just a 16-bit grayscale image, which means that the maximum available value there is 65535, while the actual difference between the deepest and the highest point on Earth is about 20 km. Just note that this setting mostly does not matter, because you can always adjust it in the Giants Editor, learn more about the DEM file and the heightScale parameter in [docs](docs/dem.md). By default, it's set to 1.
+- Multiplier: the height of the map is multiplied by this value. So the DEM map is just a 16-bit grayscale image, which means that the maximum available value there is 65535, while the actual difference between the deepest and the highest point on Earth is about 20 km. Just note that this setting mostly does not matter, because you can always adjust it in the Giants Editor, learn more about the DEM file and the heightScale parameter in [docs](docs/dem.md). To match the in-game heights with SRTM Data provider, the recommended value is 255 (if easy mode is disabled), but depending on the place, you will need to play with both multiplier and the height scale in Giants Editor to find the best values.
 
 - Blur radius: the radius of the Gaussian blur filter applied to the DEM map. By default, it's set to 21. This filter just makes the DEM map smoother, so the height transitions will be more natural. You can set it to 1 to disable the filter, but it will result in a Minecraft-like map.
 
@@ -467,6 +474,15 @@ You can also apply some advanced settings to the map generation process. Note th
 
 - Resize factor - the factor by which the background terrain will be resized. It will be used as 1 / resize_factor while generating the models. Which means that the larger the value the more the terrain will be resized. The lowest value is 1, in this case background terrain will not be resized. Note, than low values will lead to long processing and enormous size of the obj files.
 
+- Remove center - if enabled, the playable region (map terrain) will  be removed from the background terrain. Note, that it will require low resize factors, to avoid gaps between the map and the background terrain.
+
+- Apply decimation - if enabled, the mesh will be simplified to reduce the number of faces.
+
+- Decimation percent - the target percentage of decimation. The higher the value, the more simplified the mesh will be. Note, that high values will break the 3D model entirely.
+
+- Decimation agression - the aggression of the decimation. The higher the value, the more aggressive the
+decimation will be, which means the higher it will affect the geometry. It's not recommended to make it higher than the default value, otherwise the background terrain will not match the map terrain.
+
 ### GRLE Advanced settings
 
 - Farmlands margin - this value (in meters) will be applied to each farmland, making it bigger. You can use the value to adjust how much the farmland should be bigger than the actual field. By default, it's set to 3.
@@ -474,6 +490,18 @@ You can also apply some advanced settings to the map generation process. Note th
 - Random plants - when adding decorative foliage, enabling this option will add different species of plants to the map. If unchecked only basic grass (smallDenseMix) will be added. Defaults to True.
 
 - Add Farmyards - if enabled, the tool will create farmlands from the regions that are marked as farmyards in the OSM data. Those farmlands will not have fields and also will not be drawn on textures. By default, it's turned off.
+
+- Base grass - you can select which plant will be used as a base grass on the map. 
+
+- Plants island minimum size - when random plants are enabled, the generator will add islands of differents plants to the map and choose the random size of those island between the minimum and maximum values. This one is the minimum size of the island in meters.
+
+- Plants island maximum size - it's the same as above, but for the maximum size of the island in meters.
+
+- Plants island vertex count - the number of vertices in the island. The higher the value, the more detailed the island will be. Note, that high values will turn the smoothed island into geometric madness.
+
+- Plants insland rounding radius - used to round the vertices of the island. The higher the value, the more rounded the island will be.
+
+- Plants island percent - defines the relation between the map size and the number of islands of plants. For example, if set to 100% for map size of 2048 will be added 2048 islands of plants. 
 
 ### I3D Advanced settings
 
@@ -507,6 +535,8 @@ The tool also supports the expert settings. Do not use them until you read the d
 - Show raw configuration - you'll be able to change all the settings in a single JSON file. It's useful if you want to save the configuration and use it later, without changing the settings in the UI. Be extremely careful with this setting, because you can break the tool with incorrect settings.
 
 - Show schemas - you'll be able to edit or define your own texture or tree schemas. It's useful if you want to add some custom textures or trees to the map. Refer to the [Texture schema](#texture-schema) section to learn more about the schema structure. Any incorrect value here will lead to the completely broken map.
+
+- Upload custom background image - if you have an image, which represents the map and background terrain you can use it for generation. Note, that the image should meet the following requirements: 1:1 aspect ratio, size = map size + 2048 * 2, it should be uint16 (unsigned 16-bit integer) grayscale (single channel) image. The image should be in the PNG format. If any of the requirements are not met, the tool raises an error. If you're using rotation, the image should already be rotated.
 
 ## Resources
 In this section, you'll find a list of the resources that you need to create a map for the Farming Simulator.<br>
@@ -547,3 +577,4 @@ But also, I want to thank the people who helped me with the project in some way,
 - [Lucandia](https://github.com/Lucandia) - for the awesome StreamLit [widget to preview STL files](https://github.com/Lucandia/streamlit_stl).
 - [H4rdB4se](https://github.com/H4rdB4se) - for investigating the issue with custom OSM files and finding a proper way to work with the files in JOSM.
 - [kbrandwijk](https://github.com/kbrandwijk) - for providing [awesome tool](https://github.com/Paint-a-Farm/satmap_downloader) to download the satellite images from the Google Maps and giving a permission to modify it and create a Python Package.
+- [Maaslandmods](https://github.com/Maaslandmods) - for the awesome idea to edit the tree schema in UI, images and code snippets on how to do it.

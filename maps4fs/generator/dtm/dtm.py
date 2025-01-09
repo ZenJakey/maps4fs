@@ -4,8 +4,9 @@ and specific settings for downloading and processing the data."""
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 import os
-from typing import Type
+from typing import TYPE_CHECKING, Type
 
 import numpy as np
 import osmnx as ox  # type: ignore
@@ -15,24 +16,30 @@ from pydantic import BaseModel
 
 from maps4fs.logger import Logger
 
+if TYPE_CHECKING:
+    from maps4fs.generator.map import Map
+
 
 class DTMProviderSettings(BaseModel):
     """Base class for DTM provider settings models."""
 
 
-class DTMProvider:
+# pylint: disable=too-many-public-methods
+class DTMProvider(ABC):
     """Base class for DTM providers."""
 
     _code: str | None = None
     _name: str | None = None
     _region: str | None = None
     _icon: str | None = None
-    _resolution: float | None = None
+    _resolution: float | str | None = None
 
     _url: str | None = None
 
     _author: str | None = None
+    _contributors: str | None = None
     _is_community: bool = False
+    _is_base: bool = False
     _settings: Type[DTMProviderSettings] | None = None
 
     _instructions: str | None = None
@@ -45,6 +52,7 @@ class DTMProvider:
         size: int,
         directory: str,
         logger: Logger,
+        map: Map | None = None,  # pylint: disable=W0622
     ):
         self._coordinates = coordinates
         self._user_settings = user_settings
@@ -56,6 +64,27 @@ class DTMProvider:
         os.makedirs(self._tile_directory, exist_ok=True)
 
         self.logger = logger
+        self.map = map
+
+        self._data_info: dict[str, int | str | float] | None = None
+
+    @property
+    def data_info(self) -> dict[str, int | str | float] | None:
+        """Information about the DTM data.
+
+        Returns:
+            dict: Information about the DTM data.
+        """
+        return self._data_info
+
+    @data_info.setter
+    def data_info(self, value: dict[str, int | str | float] | None) -> None:
+        """Set information about the DTM data.
+
+        Arguments:
+            value (dict): Information about the DTM data.
+        """
+        self._data_info = value
 
     @property
     def coordinates(self) -> tuple[float, float]:
@@ -94,6 +123,24 @@ class DTMProvider:
             str: Author of the provider.
         """
         return cls._author
+
+    @classmethod
+    def contributors(cls) -> str | None:
+        """Contributors of the provider.
+
+        Returns:
+            str: Contributors of the provider.
+        """
+        return cls._contributors
+
+    @classmethod
+    def is_base(cls) -> bool:
+        """Is the provider a base provider.
+
+        Returns:
+            bool: True if the provider is a base provider, False otherwise.
+        """
+        return cls._is_base
 
     @classmethod
     def is_community(cls) -> bool:
@@ -165,7 +212,8 @@ class DTMProvider:
         """
         providers = {}
         for provider in cls.__subclasses__():
-            providers[provider._code] = provider.description()  # pylint: disable=W0212
+            if not provider.is_base():
+                providers[provider._code] = provider.description()  # pylint: disable=W0212
         return providers  # type: ignore
 
     def download_tile(self, output_path: str, **kwargs) -> bool:
@@ -210,6 +258,7 @@ class DTMProvider:
         """
         raise NotImplementedError
 
+    @abstractmethod
     def get_numpy(self) -> np.ndarray:
         """Get numpy array of the tile.
         Resulting array must be 16 bit (signed or unsigned) integer and it should be already
@@ -260,3 +309,13 @@ class DTMProvider:
             raise ValueError("No data in the tile.")
 
         return data
+
+    def info_sequence(self) -> dict[str, int | str | float] | None:
+        """Returns the information sequence for the component. Must be implemented in the child
+        class. If the component does not have an information sequence, an empty dictionary must be
+        returned.
+
+        Returns:
+            dict[str, int | str | float] | None: Information sequence for the component.
+        """
+        return self.data_info

@@ -106,7 +106,7 @@ class GeneratorUI:
             if versions:
                 latest_version, current_version = versions
                 if not current_version:
-                    self.logger.warning("Can't get the current version of the package.")
+                    self.logger.debug("Can't get the current version of the package.")
                     return
                 st.write(f"`{current_version}`")
                 if self.public:
@@ -182,7 +182,7 @@ class GeneratorUI:
         self.settings = settings
 
     def _create_widget(
-        self, field_name: str, raw_field_name: str, value: int | bool, disabled: bool = False
+        self, field_name: str, raw_field_name: str, value: int | bool | str, disabled: bool = False
     ) -> int | bool:
         """Create a widget for the given field.
 
@@ -203,6 +203,16 @@ class GeneratorUI:
             )
         elif type(value) is bool:
             return st.checkbox(label=field_name, value=value, key=raw_field_name, disabled=disabled)
+        elif type(value) is tuple:
+            return st.selectbox(label=field_name, options=value)
+        elif type(value) is dict:
+            return st.selectbox(
+                label=field_name,
+                options=value,
+                format_func=value.get,
+                key=raw_field_name,
+                disabled=disabled,
+            )
         else:
             raise ValueError(f"Unsupported type of the value: {type(value)}")
 
@@ -230,13 +240,11 @@ class GeneratorUI:
                 if provider.is_community():
                     st.warning(Messages.COMMUNITY_PROVIDER, icon="💡")
                     st.write(f"Author: {provider.author()}")
+                    if provider.contributors() is not None:
+                        st.write(f"Contributors: {provider.contributors()}")
 
                 if provider.instructions() is not None:
                     st.write(provider.instructions())
-                if provider_code == "srtm30":
-                    self.multiplier_setter = st.checkbox(
-                        "Apply the default multiplier", key="multiplier_setter"
-                    )
 
                 if provider.settings() is not None:
                     provider_settings = provider.settings()()
@@ -325,7 +333,6 @@ class GeneratorUI:
             disabled=self.public,
             on_change=self.provider_info,
         )
-        self.multiplier_setter = False
         self.provider_settings = None
         self.provider_info_container = st.empty()
         self.provider_info()
@@ -345,6 +352,7 @@ class GeneratorUI:
             on_change=self.map_preview,
         )
 
+        self.custom_background_path = None
         self.expert_mode = False
         self.raw_config = None
 
@@ -426,6 +434,23 @@ class GeneratorUI:
                             height=600,
                             label_visibility="collapsed",
                         )
+
+            self.custom_background = st.checkbox(
+                "Upload custom background", value=False, key="custom_background"
+            )
+
+            if self.custom_background:
+                st.info(Messages.CUSTOM_BACKGROUND_INFO)
+
+                uploaded_file = st.file_uploader("Choose a file", type=["png"])
+                if uploaded_file is not None:
+                    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                    self.custom_background_path = os.path.join(
+                        config.INPUT_DIRECTORY, f"custom_background_{timestamp}.png"
+                    )
+                    with open(self.custom_background_path, "wb") as f:
+                        f.write(uploaded_file.read())
+                    st.success(f"Custom background uploaded: {uploaded_file.name}")
 
         # Add an empty container for status messages.
         self.status_container = st.empty()
@@ -519,9 +544,6 @@ class GeneratorUI:
         # Limit settings on the public server.
         json_settings = self.limit_on_public(json_settings)
 
-        if self.multiplier_setter:
-            json_settings["DEMSettings"]["multiplier"] = 255
-
         # Parse settings from the JSON.
         all_settings = mfs.SettingsModel.all_settings_from_json(json_settings)
 
@@ -576,6 +598,7 @@ class GeneratorUI:
             satellite_settings=all_settings["SatelliteSettings"],
             texture_custom_schema=texture_schema,
             tree_custom_schema=tree_schema,
+            custom_background_path=self.custom_background_path,
         )
 
         if self.public:

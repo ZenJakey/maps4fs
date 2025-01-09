@@ -16,6 +16,7 @@ from maps4fs.generator.settings import (
     GRLESettings,
     I3DSettings,
     SatelliteSettings,
+    SharedSettings,
     SplineSettings,
     TextureSettings,
 )
@@ -88,6 +89,17 @@ class Map:
 
         self.dem_settings = dem_settings
         self.logger.info("DEM settings: %s", dem_settings)
+        if self.dem_settings.water_depth > 0:
+            # Make sure that the plateau value is >= water_depth
+            self.dem_settings.plateau = max(
+                self.dem_settings.plateau, self.dem_settings.water_depth
+            )
+            self.logger.info(
+                "Plateau value was set to %s to be >= water_depth value %s",
+                self.dem_settings.plateau,
+                self.dem_settings.water_depth,
+            )
+
         self.background_settings = background_settings
         self.logger.info("Background settings: %s", background_settings)
         self.grle_settings = grle_settings
@@ -123,6 +135,8 @@ class Map:
         with open(save_path, "w", encoding="utf-8") as file:
             json.dump(settings_json, file, indent=4)
 
+        self.shared_settings = SharedSettings()
+
         self.texture_custom_schema = kwargs.get("texture_custom_schema", None)
         if self.texture_custom_schema:
             save_path = os.path.join(self.map_directory, "texture_custom_schema.json")
@@ -132,10 +146,16 @@ class Map:
 
         self.tree_custom_schema = kwargs.get("tree_custom_schema", None)
         if self.tree_custom_schema:
+            self.logger.info("Custom tree schema contains %s trees", len(self.tree_custom_schema))
             save_path = os.path.join(self.map_directory, "tree_custom_schema.json")
             with open(save_path, "w", encoding="utf-8") as file:
                 json.dump(self.tree_custom_schema, file, indent=4)
             self.logger.debug("Tree custom schema saved to %s", save_path)
+
+        self.custom_background_path = kwargs.get("custom_background_path", None)
+        if self.custom_background_path:
+            save_path = os.path.join(self.map_directory, "custom_background.png")
+            shutil.copyfile(self.custom_background_path, save_path)
 
         try:
             shutil.unpack_archive(game.template_path, self.map_directory)
@@ -245,7 +265,7 @@ class Map:
             str: Path to the archive.
         """
         archive_path = shutil.make_archive(archive_path, "zip", self.map_directory)
-        self.logger.info("Map packed to %s.zip", archive_path)
+        self.logger.debug("Map packed to %s.zip", archive_path)
         if remove_source:
             try:
                 shutil.rmtree(self.map_directory)

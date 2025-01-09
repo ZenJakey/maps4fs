@@ -61,6 +61,14 @@ class Messages:
         "https://github.com/iwatkot/maps4fs/blob/main/docs/custom_osm.md).  \n"
         "Note, that incorrect file can lead to errors or completely broken map."
     )
+    CUSTOM_BACKGROUND_INFO = (
+        "The uploaded file should be:  \n"
+        "- Single-channel (grayscale) unsigned 16-bit PNG image.  \n"
+        "- The size of the image should be map size + 4096 in each dimension, where the map in "
+        "the center.  \n"
+        "- If rotation needed, the image should be rotated already.  \n  \n"
+        "If any of above conditions are not met, generation will fail."
+    )
     EXPERT_MODE_INFO = (
         "In this mode you can edit confuguration of the generation in a raw format. "
         "Be careful, any incorrect value can lead to errors or completely broken map."
@@ -89,6 +97,10 @@ class Settings:
         "DEM multiplier can be used to make the terrain more pronounced. "
         "By default the DEM file will be exact copy of the real terrain. "
         "If you want to make it more steep, you can increase this value. "
+        "The recommended value of the multiplier is 255 (for SRTM DTM provider), "
+        "which refers to the height scale "
+        "in Giants Editor. But it will not going to work with every place, you need to perform "
+        "experiments, play both with the multiplier and the height scale in GE."
     )
     BLUR_RADIUS = (
         "DEM blur radius is used to blur the elevation map. Without blurring the terrain "
@@ -127,6 +139,26 @@ class Settings:
         "will not be resized. Low values will result with a very long processing and "
         "meshes of enormous size. Do not change it unless you know what you are doing."
     )
+    REMOVE_CENTER = (
+        "If remove center is enabled, the region of playable map terrain will be removed "
+        "from the background terrain 3D model. Note, that due to resizing, it's recommended "
+        "to use this feature only when **Resize factor** is set to 1, otherwise there will be "
+        "a gap between the background terrain and the playable map terrain."
+    )
+    APPLY_DECIMATION = (
+        "If apply decimation is enabled, the background terrain will be decimated to the "
+        "specified value. It can be useful if you want to reduce the size of the 3D model. "
+    )
+    DECIMATION_PERCENT = (
+        "Decimation percent value is used to set the decimation percent. The higher the value, "
+        "the more decimated the model will be. Be careful with high values, because it may "
+        "completely break the model."
+    )
+    DECIMATION_AGRESSION = (
+        "Decimation aggression value is used to set the decimation aggression. The higher the "
+        "the more faces will be removed. Note, that higher values will break the geometry of the "
+        "3D model and it won't match with the playable terrain. "
+    )
 
     # GRLE Settings
 
@@ -145,6 +177,29 @@ class Settings:
         "the regions with correspoding tas will be added as a farmland even without the "
         "corresponding field. It can be useful if you want to add some farmland in the "
         "regions without fields."
+    )
+    BASE_GRASS = "Select the plant that will be used as a base grass."
+    # plants_island_minimum_size
+    PLANTS_ISLAND_MINIMUM_SIZE = (
+        "Plants island minimum size value is used to set the minimum size of the plants islands "
+        "when random size of the island will be selected, it will be the lowest possible size. "
+    )
+    PLANTS_ISLAND_MAXIMUM_SIZE = (
+        "Plants island maximum size value is used to set the maximum size of the plants islands "
+        "when random size of the island will be selected, it will be the highest possible size. "
+    )
+    PLANTS_ISLAND_VERTEX_COUNT = (
+        "Plants island vertex count value is used to set the number of vertices of the plants. "
+        "The higher the value, the more complex shapes of the island will be. "
+    )
+    PLANTS_ISLAND_ROUNDING_RADIUS = (
+        "Plants island rounding radius value is used to set the rounding radius of the plants. "
+        "The higher the value, the more rounded the vertices will be. "
+    )
+    PLANTS_ISLAND_PERCENT = (
+        "Plants island percent value is used to set the relation between the map size and the "
+        "number of islands of plants. For example, if set to 100% for map size of 2048, the number"
+        " of islands will be 2048."
     )
 
     # I3D Settings

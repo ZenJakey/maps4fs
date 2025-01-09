@@ -2,7 +2,9 @@ from typing import Type
 
 from tools.background import ConvertImageToObj
 from tools.dem import GeoTIFFWindowingTool
+from tools.textures import TextureSchemaEditorTool
 from tools.tool import Tool
+from tools.trees import TreeSchemaEditorTool
 
 
 class Section:
@@ -18,6 +20,12 @@ class Section:
     def add(cls):
         for tool in cls.tools:
             tool()
+
+
+class Shemas(Section):
+    title = "📄 Schemas"
+    description = "Tools to work with different schemas."
+    tools = [TreeSchemaEditorTool, TextureSchemaEditorTool]
 
 
 class TexturesAndDEM(Section):
